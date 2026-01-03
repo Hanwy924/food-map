@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍜 美食地图</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+:root {
+  --bg:#f5f5f5; --card:#fff; --text:#222; --sub:#666; --accent:#ffb347;
+}
+body.dark {
+  --bg:#121212; --card:#1e1e1e; --text:#eee; --sub:#aaa;
+}
+body.dark header {
+  background:linear-gradient(135deg,#057478,#8130a1);
+}
+
+body {
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  background:var(--bg); color:var(--text);
+}
+header {
+  padding:1.2rem;
+  text-align:center;
+  background:linear-gradient(135deg,#ffb347,#3ed2e8);
+}
+.controls {
+  display:flex;
+  gap:.5rem;
+  padding:.8rem;
+}
+input {
+  flex:1;
+  padding:.6rem;
+  border-radius:10px;
+  border:none;
+}
+button {
+  padding:.6rem .9rem;
+  border-radius:10px;
+  border:none;
+  cursor:pointer;
+}
+#map { height:45vh; }
+.list { padding:1rem; }
+.city {
+  background:var(--card);
+  padding:1rem;
+  border-radius:14px;
+  margin-bottom:1.2rem;
+}
+.city h2 {
+  margin:0 0 .5rem;
+  border-left: 5px solid #0bc6fa;
+  padding-left:.6rem;
+}
+li { color:var(--sub); margin:.25rem 0; }
+.note { font-style:italic; color:var(--sub); margin-top:.4rem; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🍜 美食地图</h1>
+  <p>世界上第一个美食地图！</p>
+</header>
+
+<div class="controls">
+  <input id="search" placeholder="搜索 城市 / 食物…" />
+  <button onclick="toggleDark()">🌙</button>
+</div>
+
+<div id="map"></div>
+<div class="list" id="list"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const data = [
+  {city:"盱眙",emoji:"🦞",lat:33.01,lng:118.53,foods:["龙虾🦞","小鱼锅贴🥟","葱油饼🫓","龙虾拌面🍜"]},
+  {city:"东海",emoji:"🔮",lat:34.54,lng:118.77,foods:["菜煎饼🫓","凉皮凉面🍜","娃娃鱼🐟","阳光玫瑰葡萄🍇","巨峰葡萄🍇","冰糖葫芦🍡"]},
+  {city:"青岛",emoji:"🍻",lat:36.07,lng:120.38,foods:["鱿鱼丝🦑","鱼干🐟","彩色水饺🥟","海肠捞饭🍱","青岛鲜啤🍻"]},
+  {city:"蓬莱",emoji:"🍎",lat:37.81,lng:120.75,foods:["烟台苹果🍎"]},
+  {city:"天津",emoji:"🫔",lat:39.08,lng:117.20,foods:["煎饼果子🫔","米村拌饭🍱"]},
+  {city:"北京",emoji:"🦆",lat:39.90,lng:116.40,foods:["北京烤鸭🦆","稻香村（驴打滚）🥚"]},
+  {city:"桓仁",emoji:"🍸",lat:41.27,lng:125.36,foods:["五女山冰葡萄酒🍸","五女山山葡萄汁🧃"]},
+  {city:"长白山",emoji:"🍈",lat:42.02,lng:128.06,foods:["香瓜🍈","幸运咖☕️","农夫山泉💧"],note:"千万不要在西景区前面吃饭 💩"},
+  {city:"延吉",emoji:"🍜",lat:42.89,lng:129.51,foods:["冷面🍜","牛肉汤饭🍚","锅包肉🥩","冰碗冷面🍜（未尝试）"]},
+  {city:"东极",emoji:"🐟",lat:48.36,lng:134.29,foods:["清蒸小白鱼🐟","番茄🍅"]},
+  {city:"鹤岗",emoji:"🥟",lat:47.33,lng:130.30,foods:["烧烤小串🍡","喜家德饺子🥟"]},
+  {city:"黑河",emoji:"🥩",lat:50.25,lng:127.49,foods:["极寒安格斯牛肉🥩","干拌豆腐丝🍜"]},
+  {city:"呼玛县",emoji:"🐔",lat:51.73,lng:126.65,foods:["铁锅炖小笨鸡🐔","Crystal Coffee 拿铁☕️"]},
+  {city:"满洲里",emoji:"🍲",lat:49.60,lng:117.43,foods:["草原饭店火锅🍲","草原饭店干丝🍜","格瓦斯🍻","塔拉贝尔炒快餐面🍜","塔拉贝尔宫后🍡","塔拉贝尔羊排🥩"]},
+  {city:"锡林浩特",emoji:"🍲",lat:43.94,lng:116.04,foods:["爱上羊草原火锅🍲"]},
+  {city:"西安",emoji:"🍜",lat:34.27,lng:108.95,foods:["四合一宽面🍜","三宝烤肉🍖"]},
+  {city:"荆门",emoji:"🍞",lat:31.03,lng:112.20,foods:["火烧馍🍞","龙虾🦞"]},
+  {city:"武汉",emoji:"🥩",lat:30.59,lng:114.30,foods:["黑椒牛仔粒🥩","黄门元子🏀","家常烩丝瓜🥒"]},
+  {city:"南京",emoji:"🏠",lat:32.06,lng:118.79,foods:["小李汤包🍘"]},
+  {city:"昆明",emoji:"🏔️",lat:25.04,lng:102.71,foods:["野生菌汤🥣","拿破仑蛋糕🍰","小酥鸭（茄子恰恰）🦆","虫子🐛","桂花茶🍵","羊肉串🍢"]},
+  {city:"大理",emoji:"👂",lat:25.69,lng:100.18,foods:["虫子🐛","烤乳扇🧀","炒杂菌🍄","胖哥俩👬","景泰民族手抓饭🐶"]},
+  {city:"丽江",emoji:"⛩️",lat:26.86,lng:100.23,foods:["雪茶❄️","野生菌汤🥣","烤冷面🍜","腊排骨汤🍖"]}
+];
+
+const map=L.map("map").setView([35,105],4);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+function render(filter=""){
+  document.getElementById("list").innerHTML="";
+  data.forEach(d=>{
+    if(!(d.city+d.foods.join("")).includes(filter)) return;
+
+    L.marker([d.lat,d.lng]).addTo(map)
+      .bindPopup(`<b>${d.city}${d.emoji}</b><br>${d.foods.join("<br>")}`);
+
+    const div=document.createElement("div");
+    div.className="city";
+    div.innerHTML=`<h2>${d.city} ${d.emoji}</h2>
+      <ul>${d.foods.map(f=>`<li>${f}</li>`).join("")}</ul>
+      ${d.note?`<div class="note">⚠️ ${d.note}</div>`:""}`;
+    document.getElementById("list").appendChild(div);
+  });
+}
+
+document.getElementById("search").oninput=e=>render(e.target.value);
+function toggleDark(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("dark",document.body.classList.contains("dark"));
+}
+if(localStorage.getItem("dark")==="true") document.body.classList.add("dark");
+
+render();
+</script>
+
+</body>
+</html>
